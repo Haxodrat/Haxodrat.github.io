@@ -104,8 +104,8 @@
 
       <h3>Single-scale exhaustive (baseline)</h3>
       <p>
-        Search all integer displacements in a window (e.g., ±15) and pick the best score.
-        This is fast enough for the small JPGs.
+        Search all integer displacements in a window for the center region (e.g., ±15) and pick the best score.
+        This is fast enough for the small JPGs. Then, apply the shifts found to stack the channels and output a color image.
       </p>
 
       <h3>Multi-scale Coarse-to-fine pyramid</h3>
