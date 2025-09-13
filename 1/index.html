@@ -1,24 +1,268 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<style>
-  body {
-    padding: 100px;
-    width: 1000px;
-    margin: auto;
-  }
-</style>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CS180 Project 1</title>
+  <title>CS180 Project 1 — Prokudin-Gorskii (Christopher Kim)</title>
+  <style>
+    :root{
+      --ink:#111;
+      --muted:#666;
+      --bg:#faf9f7;
+      --card:#ffffff;
+      --accent:#2a7fff;
+      --border:#e9e5df;
+      --max:1080px;
+    }
+    html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);}
+    body{font:16px/1.6 Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";}
+
+    .wrap{max-width:var(--max);margin:0 auto;padding:64px 24px 88px;}
+    header{margin-bottom:28px}
+    h1{font-family:"Crimson Text", serif;font-weight:700;font-size:40px;letter-spacing:.2px;margin:6px 0 6px}
+    .sub{color:var(--muted);margin:0 0 24px}
+    nav{position:sticky;top:0;background:rgba(250,249,247,.86);backdrop-filter: blur(6px);border-bottom:1px solid var(--border);z-index:10}
+    nav .navwrap{max-width:var(--max);margin:0 auto;padding:10px 24px;display:flex;gap:18px;flex-wrap:wrap}
+    nav a{color:var(--ink);text-decoration:none;padding:6px 10px;border-radius:8px}
+    nav a:hover{background:#efece6}
+
+    h2{font-family:"Crimson Text", serif;font-weight:700;font-size:28px;margin:40px 0 10px}
+    h3{font-weight:700;margin:26px 0 8px}
+    p{margin:12px 0}
+    code, pre{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace}
+    .note{color:var(--muted);font-size:14px}
+
+    .kbd{font:600 12px/1 ui-monospace;background:#f0efe9;border:1px solid var(--border);padding:2px 6px;border-radius:6px}
+
+    .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+    .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+    figure{margin:0}
+    figure img{width:100%;display:block;border-radius:10px;border:1px solid var(--border);}
+    figcaption{font-size:14px;color:var(--muted);margin-top:8px}
+
+    .callout{border-left:4px solid var(--accent);padding:10px 14px;background:#f4f8ff;border-radius:8px}
+    .pill{display:inline-block;background:#edf2ff;color:#234; border:1px solid #dbe6ff; padding:2px 8px;border-radius:999px;font-size:12px;margin-right:6px}
+    .hr{height:1px;background:var(--border);margin:28px 0}
+
+    table{border-collapse:collapse;width:100%;font-size:14px}
+    th,td{border-bottom:1px solid var(--border);padding:8px 10px;text-align:left}
+    th{font-weight:600;background:#fafbff}
+    .center{display:block;margin:0 auto;text-align:center}
+
+    footer{margin-top:56px;color:var(--muted);font-size:14px}
+  </style>
 </head>
 
 <body>
-  <h1 align="middle">CS180 Proj 1 by Christopher Kim</h1>
-  <div>
-    <h2 align="middle">Overview</h2>
-    <p>
-      X
-    </p>
+  <nav>
+    <div class="navwrap">
+      <a href="#overview">Overview</a>
+      <a href="#method">Method</a>
+      <a href="#baseline">Results — NCC + RGB</a>
+      <a href="#pyramid">Results — Pyramid</a>
+      <a href="#failures">Failures / Notes</a>
+    </div>
+  </nav>
+
+  <div class="wrap">
+    <header>
+      <h1>CS180 / Project 1 — Prokudin-Gorskii Colorization</h1>
+      <p class="sub">Christopher Kim</p>
+    </header>
+
+    <section id="overview">
+      <h2>Overview</h2>
+      <p>
+        Each glass-plate scan is a single grayscale image containing three stacked exposures through
+        blue, green, and red filters (order: <strong>B</strong>, <strong>G</strong>, <strong>R</strong>). The goal is to split the stack,
+        align the G and R frames to B, and merge into an RGB image.
+      </p>
+      <p>
+        I implemented two aligners: (1) a <em>single-scale exhaustive search</em> for small JPGs, and
+        (2) a <em>coarse-to-fine image pyramid</em> for the large TIFFs. Matching is scored with
+        <strong>NCC</strong> (baseline) and <strong>L2/SSD</strong> (for comparison).
+      </p>
+    </section>
+
+    <div class="hr"></div>
+
+    <section id="method">
+      <h2>Method</h2>
+      <h3>Pre-processing</h3>
+      <ul>
+        <li>Split the input into equal thirds: <span class="kbd">B = im[0:H]</span>,
+          <span class="kbd">G = im[H:2H]</span>, <span class="kbd">R = im[2H:3H]</span>.</li>
+        <li>For scoring only, crop 10% off each border to ignore film edges and scanning artifacts.</li>
+      </ul>
+
+      <h3>Matching metrics</h3>
+      <ul>
+        <li><strong>NCC</strong> (normalized cross-correlation): maximize correlation of mean-removed, unit-norm patches.</li>
+        <li><strong>L2/SSD</strong>: minimize mean squared difference on the overlapping region.</li>
+      </ul>
+
+      <h3>Single-scale exhaustive (baseline)</h3>
+      <p>
+        Search all integer displacements in a window (e.g., ±15) and pick the best score.
+        This is fast enough for the small JPGs.
+      </p>
+
+      <h3>Multi-scale Coarse-to-fine pyramid</h3>
+      <ol>
+        <li>Build a pyramid (factor 2 downsampling via 2×2 averaging with light pre-blur).</li>
+        <li>At the <em>coarsest</em> level, run a wide exhaustive search to get a coarse shift.</li>
+        <li>Upscale the shift (×2) to the next level and <em>refine locally</em> in a tiny window (5) around the guess.</li>
+        <li>Repeat until full resolution; apply final shifts to G and R, stack with B.</li>
+        <li>Optionally apply featurization to apply a high-pass Sobel filter whenever edges are frequent to filter those high frequencies (e.g. emir.jpg).</li>
+      </ol>
+
+      <p class="note">All reported vectors below are in <strong>(x, y)</strong> for G→B and R→B, as required.</p>
+    </section>
+
+    <div class="hr"></div>
+
+    <section id="baseline">
+        <h2>Results — Baseline (NCC + RGB)</h2>
+        <p class="note">Small JPGs; exhaustive search with a ±15–40 window. Compressed outputs only.</p>
+        
+        <div class="grid">
+            <figure class="card">
+            <img src="CS180 Proj1 Results/cathedral.jpg" alt="Cathedral (NCC baseline)">
+            <figcaption><span class="pill">cathedral.jpg</span> G: <strong>(5, 2)</strong> &nbsp; R: <strong>(12, 3)</strong></figcaption>
+            </figure>
+        
+            <figure class="card">
+            <img src="CS180 Proj1 Results/monastery.jpg" alt="Monastery (NCC baseline)">
+            <figcaption><span class="pill">monastery.jpg</span> G: <strong>(-3, 2)</strong> &nbsp; R: <strong>(3, 2)</strong></figcaption>
+            </figure>
+        
+            <figure class="card">
+            <img src="CS180 Proj1 Results/tobolsk.jpg" alt="Tobolsk (NCC baseline)">
+            <figcaption><span class="pill">tobolsk.jpg</span> G: <strong>(3, 3)</strong> &nbsp; R: <strong>(6, 3)</strong></figcaption>
+            </figure>
+        </div>
+    </section>
+      
+
+    <div class="hr"></div>
+
+    <section id="pyramid">
+        <h2>Results — Pyramid (large TIFFs)</h2>
+        <p class="note">Coarsest exhaustive window 40–60, local refine ±3–5 per level./p>
+      
+        <div class="grid">
+            <figure class="card">
+                <img src="CS180 Proj1 Results/cathedral_pyr.jpg" alt="Cathedral (pyramid)">
+                <figcaption><span class="pill">cathedral_pyr.jpg</span>
+                    G: <strong>(5, 2)</strong> &nbsp; R: <strong>(12, 3)</strong>
+                </figcaption>
+            </figure>
+                
+            <figure class="card">
+                <img src="CS180 Proj1 Results/monastery_pyr.jpg" alt="Monastery (pyramid)">
+                <figcaption><span class="pill">monastery_pyr.jpg</span>
+                    G: <strong>(-3, 2)</strong> &nbsp; R: <strong>(3, 2)</strong>
+                </figcaption>
+            </figure>
+                
+            <figure class="card">
+                <img src="CS180 Proj1 Results/tobolsk_pyr.jpg" alt="Tobolsk (pyramid)">
+                <figcaption><span class="pill">tobolsk_pyr.jpg</span>
+                    G: <strong>(3, 3)</strong> &nbsp; R: <strong>(6, 3)</strong>
+                </figcaption>
+            </figure>
+            <figure class="card">
+                <img src="CS180 Proj1 Results/church.jpg" alt="Church (pyramid)">
+                <figcaption><span class="pill">church.tif → jpg</span> G: <strong>(24, -4)</strong> &nbsp; R: <strong>(57, -7)</strong></figcaption>
+            </figure>
+        
+            <figure class="card">
+                <img src="CS180 Proj1 Results/emir.jpg" alt="Emir (pyramid)">
+                <figcaption><span class="pill">emir.tif → jpg</span> G: <strong>(49, 23)</strong> &nbsp; R: <strong>(107, 40)</strong></figcaption>
+            </figure>
+        
+            <figure class="card">
+                <img src="CS180 Proj1 Results/harvesters.jpg" alt="Harvesters (pyramid)">
+                <figcaption><span class="pill">harvesters.tif → jpg</span> G: <strong>(59, 9)</strong> &nbsp; R: <strong>(127, 7)</strong></figcaption>
+            </figure>
+        
+            <figure class="card">
+                <img src="CS180 Proj1 Results/icon.jpg" alt="Icon (pyramid)">
+                <figcaption><span class="pill">icon.tif → jpg</span> G: <strong>(41, 16)</strong> &nbsp; R: <strong>(90, 22)</strong></figcaption>
+            </figure>
+        
+            <figure class="card">
+                <img src="CS180 Proj1 Results/italil.jpg" alt="Italil (pyramid)">
+                <figcaption><span class="pill">italil.tif → jpg</span> G: <strong>(38, 18)</strong> &nbsp; R: <strong>(77, 34)</strong></figcaption>
+            </figure>
+        
+            <figure class="card">
+                <img src="CS180 Proj1 Results/lugano.jpg" alt="Lugano (pyramid)">
+                <figcaption><span class="pill">lugano.tif → jpg</span> G: <strong>(41, -12)</strong> &nbsp; R: <strong>(93, -27)</strong></figcaption>
+            </figure>
+        
+            <figure class="card">
+                <img src="CS180 Proj1 Results/melons.jpg" alt="Melons (pyramid)">
+                <figcaption><span class="pill">melons.tif → jpg</span> G: <strong>(83, 3)</strong> &nbsp; R: <strong>(179, 8)</strong></figcaption>
+            </figure>
+        
+            <figure class="card">
+                <img src="CS180 Proj1 Results/self_portrait.jpg" alt="Self Portrait (pyramid)">
+                <figcaption><span class="pill">self_portrait.tif → jpg</span> G: <strong>(77, -1)</strong> &nbsp; R: <strong>(175, 17)</strong></figcaption>
+            </figure>
+        
+            <figure class="card">
+                <img src="CS180 Proj1 Results/siren.jpg" alt="Siren (pyramid)">
+                <figcaption><span class="pill">siren.tif → jpg</span> G: <strong>(49, -6)</strong> &nbsp; R: <strong>(99, -20)</strong></figcaption>
+            </figure>
+        
+            <figure class="card">
+                <img src="CS180 Proj1 Results/three_generations.jpg" alt="Three Generations (pyramid)">
+                <figcaption><span class="pill">three_generations.tif → jpg</span> G: <strong>(52, 5)</strong> &nbsp; R: <strong>(112, 7)</strong></figcaption>
+            </figure>
+        
+            <figure class="card">
+                <img src="CS180 Proj1 Results/lastochikino.jpg" alt="Lastochikino (pyramid)">
+                <figcaption><span class="pill">lastochikino.tif → jpg</span> G: <strong>(5, -4)</strong> &nbsp; R: <strong>(76, -8)</strong></figcaption>
+            </figure>
+        </div>
+    </section>
+      
+
+    <div class="hr"></div>
+
+    <div class="hr"></div>
+
+    <section id="failures">
+      <h2>Failures / Notes</h2>
+      <ul>
+        <li><strong>Film borders</strong> (numbers/frames) can bias the metric. I cropped 10% off each side for scoring, focusing on central region and trimmed seams after shifting.</li>
+        <li><strong>Residual halos</strong> on highly textured images may indicate a 1–2 px error; bump refine window to ±5 and/or increase crop.</li>
+        <li><strong>Featurization</strong> on raw images may highlight edges (high frequencies) when they're frequent. I used Sobel filter whenever encountering images with many strong edge intensities because raw intensities can underestimate the intensity shifts, hindering the correlation peak from landing at the correct displacement (larger).</li>
+      </ul>
+    </section>
+
+    <div class="hr"></div>
+
+
+    <div class="hr"></div>
+
+    <section id="appendix">
+      <h2>Implementation Notes</h2>
+      <table>
+        <tr><th>Component</th><th>Choice</th></tr>
+        <tr><td>Metric (baseline)</td><td>NCC on raw intensities</td></tr>
+        <tr><td>Exhaustive window (JPGs)</td><td>±15–30</td></tr>
+        <tr><td>Pyramid</td><td>2× downsample (2×2 average with blur), coarsest exhaustive, refine ±3–5 per level</td></tr>
+        <tr><td>Crop for scoring</td><td>~5–10% per side (tune per image)</td></tr>
+        <tr><td>Reported shifts</td><td>(x, y) for G→B and R→B</td></tr>
+      </table>
+    </section>
+
+    <footer>
+      <p>christopherkim@berkeley.edu</p>
+    </footer>
   </div>
 </body>
+</html>
