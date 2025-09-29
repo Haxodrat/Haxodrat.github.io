@@ -1,1 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>CS 180 – Project 2: Fun with Filters and Frequencies</title>
+<base href="./CS%20180%20Proj2%20Results/">
+<style>
+  :root{--bg:#0f1115;--card:#171a21;--ink:#e8ecf1;--muted:#9aa6b2;--accent:#6aa6ff}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+  header{padding:32px 16px 10px;text-align:center}
+  h1{margin:0 0 6px}
+  .sub{margin:0;color:var(--muted)}
+  nav{position:sticky;top:0;z-index:5;border-bottom:1px solid #222;background:rgba(15,17,21,.92);backdrop-filter:blur(6px)}
+  nav .wrap{display:flex;gap:10px;overflow:auto;padding:8px 12px}
+  nav a{color:var(--ink);text-decoration:none;background:#1b1f2a;padding:6px 10px;border-radius:10px;white-space:nowrap}
+  section{padding:28px 16px;scroll-margin-top:64px}
+  h2{margin:0 0 10px}
+  .overview{background:#121521;border-left:3px solid var(--accent);color:#cfd6df;padding:12px 14px;border-radius:8px;margin:10px 0 14px}
+  .grid{display:grid;gap:14px}
+  @media(min-width:640px){.grid{grid-template-columns:repeat(2,1fr)}}
+  @media(min-width:980px){.grid{grid-template-columns:repeat(3,1fr)}}
+  figure{margin:0;background:var(--card);border:1px solid #222;border-radius:14px;overflow:hidden}
+  figure img{display:block;width:100%;height:auto;background:#0b0d11}
+  figcaption{padding:10px 12px;font-size:14px;color:var(--muted)}
+  .wide{grid-column:1/-1}
+  pre{margin:0;white-space:pre-wrap}
+  .code{background:#0b0e14;border:1px solid #222;border-radius:12px;padding:14px;overflow:auto}
+  footer{padding:40px 16px;color:var(--muted);text-align:center}
+</style>
+</head>
+<body>
 
+<header>
+  <h1>CS 180 – Project 2: Fun with Frequencies</h1>
+  <p class="sub">Convolution • Gradients & DoG • Sharpening • Hybrids • Stacks • Multiresolution Blending</p>
+</header>
+
+<nav>
+  <div class="wrap">
+    <a href="#p11">Part 1.1</a>
+    <a href="#p12">Part 1.2</a>
+    <a href="#p13">Part 1.3</a>
+    <a href="#p21">Part 2.1</a>
+    <a href="#p23_24">Part 2.3 + 2.4</a>
+  </div>
+</nav>
+
+<!-- =================== PART 1 =================== -->
+<section id="p11">
+  <h2>Part 1: Filters and Edges — <strong>1.1 Convolution (NumPy only)</strong></h2>
+  <div class="overview">
+    <p>
+      I implemented two direct 2-D convolutions: a baseline <code>conv2d_four_loops</code> and a faster
+      <code>conv2d_two_loops</code> (vectorizing the inner multiply-sum). Both flip the kernel and support
+      <code>padding="same"</code> via manual constant padding. I compare against
+      <code>scipy.signal.convolve2d</code> to verify correctness and discuss boundary handling (zero-fill).
+      Boundary: Zero-fill pads with zeros outside image so the edges near border are darker/smaller, creating a dark frame.
+      Runtime: Complexity for kxk kernel is O(HWk^2). Two-loop (HW) is faster than four-loop because it keeps only output indices in Python loops and does the inner window code in NumPy C which is a lot faster.
+    </p>
+  </div>
+
+  <h3>Selfie — Box Blur (9×9) + SciPy Comparison</h3>
+  <div class="grid">
+    <figure><img src="data/selfie.jpeg" alt="Selfie"><figcaption>Original (selfie)</figcaption></figure>
+    <figure><img src="data/box_blur_selfie.png" alt="Box blur"><figcaption>9×9 box blur (two-loops)</figcaption></figure>
+    <figure><img src="data/scipy.png" alt="SciPy reference"><figcaption>SciPy reference blur</figcaption></figure>
+  </div>
+
+  <h3>Code used in Part 1.1</h3>
+  <div class="code"><pre><code>def pad_image(image, pad_y, pad_x, value=0.0): 
+    return np.pad(image, ((pad_y, pad_y), (pad_x, pad_x)), mode="constant", constant_values=value)
+
+def conv2d_four_loops(image, kernel, padding="valid", fill=0.0):
+    # flip
+    k = kernel[::-1, ::-1].astype(np.float32)
+    kh, kw = k.shape
+    x = image.astype(np.float32, copy=False)
+    if padding == "same":
+        py, px = kh//2, kw//2
+        x = pad_image(x, py, px, value=fill)
+    oh_, ow_ = x.shape[0] - kh + 1, x.shape[1] - kw + 1
+    out = np.empty((oh_, ow_), dtype=np.float32)
+    for i in range(oh_):
+        for j in range(ow_):
+            acc = 0.0
+            for ki in range(kh):
+                for kj in range(kw):
+                    acc += x[i + ki, j + kj] * k[ki, kj]
+            out[i, j] = acc
+    return out
+
+def conv2d_two_loops(image, kernel, padding="valid", fill=0.0):
+    k = np.array(kernel, dtype=np.float32)
+    # flip vertically and horizontally
+    k = np.flipud(np.fliplr(k))
+    kh, kw = k.shape
+    if padding == "same":
+        py, px = kh//2, kw//2
+        x = pad_image(image, py, px, value=fill)
+    else:
+        py = px = int(padding)
+        x = pad_image(image, py, px, value=fill)
+    Hx, Wx = x.shape
+    out = np.zeros((Hx - kh + 1, Wx - kw + 1), dtype=np.float32)
+    for y in range(out.shape[0]):
+        row = x[y:y+kh, :]
+        for xcol in range(out.shape[1]):
+            patch = row[:, xcol:xcol+kw]
+            # vectorized multiply-sum
+            out[y, xcol] = np.sum(patch * k)
+    return out
+
+def box_filter(size):
+    k = np.ones((size, size), dtype=np.float32)
+    return k / k.size
+
+img = io.imread("../data/selfie.jpeg", as_gray=True)
+show_image(img, "Original (Selfie)")
+k_box = box_filter(9)
+blur_4 = conv2d_four_loops(img, k_box, padding="same")
+blur_2 = conv2d_two_loops(img, k_box, padding="same")
+show_image(blur_2, "9x9 Box Blur (two-loops)")
+print("Max |four_loops - two_loops| =", float(np.max(np.abs(blur_4 - blur_2))))
+ref = convolve2d(img, k_box, mode="same", boundary="fill", fillvalue=0.0)
+show_image(ref, "SciPy Reference")
+print("Max |scipy - two_loops| =", float(np.max(np.abs(ref - blur_2))))
+
+# Gradient kernels and comparisons
+Dx = np.array([[1, 0, -1]], dtype=np.float32)
+Dy = np.array([[1], [0], [-1]], dtype=np.float32)
+gx_selfie = conv2d_two_loops(img, Dx, padding="same")
+gy_selfie = conv2d_two_loops(img, Dy, padding="same")
+scipy_gx = convolve2d(img, Dx, mode="same", boundary="fill", fillvalue=0.0)
+scipy_gy = convolve2d(img, Dy, mode="same", boundary="fill", fillvalue=0.0)
+show_image(gx_selfie, "Gradient x (selfie)")
+show_image(gy_selfie, "Gradient y (selfie)")
+show_image(scipy_gx, "Gradient x (scipy)")
+show_image(scipy_gy, "Gradient y (scipy)")</code></pre></div>
+
+  <h3>Selfie — Gradients</h3>
+  <div class="grid">
+    <figure><img src="data/gradient_x_selfie.png" alt="gx"><figcaption>∂I/∂x (two-loops)</figcaption></figure>
+    <figure><img src="data/gradient_y_selfie.png" alt="gy"><figcaption>∂I/∂y (two-loops)</figcaption></figure>
+    <figure><img src="data/gradient_x_scipy.png" alt="gx scipy"><figcaption>∂I/∂x (SciPy)</figcaption></figure>
+    <figure><img src="data/gradient_y_scipy.png" alt="gy scipy"><figcaption>∂I/∂y (SciPy)</figcaption></figure>
+  </div>
+</section>
+
+<section id="p12">
+  <h2>Part 1: Filters and Edges — <strong>1.2 Partial Derivatives, Magnitude & Edges</strong></h2>
+  <div class="overview">
+    <p>
+      Using the finite-difference kernels above, I compute gradients, gradient magnitude, and threshold to a binary
+      edge map. I also visualize an optional Gaussian-smoothed pipeline. The ops highlight edges along x,y directions
+      and combined to get the gradient magnitude. I chose threshold=0.107 because it gives a good balance of edge detail without too much noise.
+    </p>
+  </div>
+  <div class="grid">
+    <figure><img src="data/partial_derivative_x.png" alt="partial deriv x"><figcaption>Partial Derivative X</figcaption></figure>
+    <figure><img src="data/partial_derivative_y.png" alt="partial deriv y"><figcaption>Partial Derivative Y</figcaption></figure>
+    <figure><img src="data/gradient_mag.png" alt="grad mag"><figcaption>Gradient magnitude</figcaption></figure>
+    <figure><img src="data/grad_mag_after_gauss.png" alt="grad mag after gauss"><figcaption>Grad mag after Gaussian</figcaption></figure>
+    <figure><img src="data/edges_after_gauss.png" alt="edges after gauss"><figcaption>Edges after Gaussian</figcaption></figure>
+  </div>
+</section>
+
+<section id="p13">
+  <h2>Part 1: Filters and Edges — <strong>1.3 Gaussian & DoG (cv2.getGaussianKernel)</strong></h2>
+  <div class="overview">
+    <p>
+      I form a separable 2-D Gaussian (<code>g @ gᵀ</code>) and DoG responses on the cameraman image; below are the
+      filters and responses along with a kernel visualization. This result shows the Gaussian kernel used for blurring, the DoG filters in x and y directions, and their respective responses when convolved with the cameraman image.
+      The edge maps produced were much clener and sharper than the finite-difference ones, showing that DoG is effective for edge detection.
+    </p>
+  </div>
+  <div class="grid">
+    <figure><img src="data/cameraman.png" alt="cameraman"><figcaption>Cameraman</figcaption></figure>
+    <figure><img src="data/gaussian2d.png" alt="gaussian"><figcaption>Gaussian kernel (viz)</figcaption></figure>
+    <figure><img src="data/dogx_filter.png" alt="DoG x"><figcaption>DoG filter (x)</figcaption></figure>
+    <figure><img src="data/dogx_res.png" alt="DoG x res"><figcaption>DoG response (x)</figcaption></figure>
+    <figure><img src="data/dogy_filter.png" alt="DoG y"><figcaption>DoG filter (y)</figcaption></figure>
+    <figure><img src="data/dogy_res.png" alt="DoG y res"><figcaption>DoG response (y)</figcaption></figure>
+    <figure><img src="data/edges_after_dog.png" alt="DoG mag"><figcaption>DoG magnitude</figcaption></figure>
+  </div>
+</section>
+
+<!-- =================== PART 2 =================== -->
+<section id="p21">
+  <h2>Part 2: Applications — <strong>2.1 Unsharp Mask (Taj + another)</strong></h2>
+  <div class="overview">
+    <p>
+      Unsharp mask: <code>I<sub>sharp</sub> = I + α(I − Gσ * I)</code>. I show Taj’s blurred, sharpened, and the
+      original; plus one extra example. I experiment with different α values to see the effect. Higher sharpness amount makes the image sharper and less blurry. 
+      This is the unsharp mask filter: convolving and adding high frequencies to the image. I applied a Gaussian filter to the image in order to get its low freq parts. Then I subtracted
+      the original and blurred image for the high-freq and added them back to original image which made the image even sharper by strengthening the edges.
+    </p>
+  </div>
+  <div class="grid">
+    <figure><img src="data/taj.jpg" alt="taj"><figcaption>Taj (original)</figcaption></figure>
+    <figure><img src="data/blurred_taj.png" alt="taj blurred"><figcaption>Taj (Gaussian-blurred)</figcaption></figure>
+    <figure><img src="data/sharpened_taj.png" alt="taj sharp"><figcaption>Taj (sharpened)</figcaption></figure>
+
+    <figure><img src="data/selfie.jpeg" alt="selfie"><figcaption>Selfie (original)</figcaption></figure>
+    <figure><img src="data/sharpened_selfie.png" alt="selfie sharp"><figcaption>Selfie (sharpened)</figcaption></figure>
+    <figure><img src="data/sharpened_2.0_selfie.png" alt="selfie sharp strong"><figcaption>Selfie (stronger α)</figcaption></figure>
+  </div>
+</section>
+
+<section id="p22">
+  <h2>Part 2: Applications — <strong>2.2 Hybrid Images</strong></h2>
+  <div class="overview">
+    <p>
+      I combine a high-pass of one image with a low-pass of another. For Derek+Nutmeg I show the full pipeline
+      including FFT visualizations; two more hybrids are shown with inputs and results. The hybrid images combine the low-frequency content of one image with the high-frequency content of another, creating a composite that changes perception based on viewing distance.
+      I chose cutoff frequency = 6 for Derek+Nutmeg because it provides a good balance between the two images, allowing both to be recognizable at different distances.
+    </p>
+  </div>
+
+  <h3>Process (Derek + Nutmeg)</h3>
+  <div class="grid">
+    <figure><img src="data/DerekPicture.jpg" alt="Derek"><figcaption>Derek</figcaption></figure>
+    <figure><img src="data/nutmeg.jpg" alt="Nutmeg"><figcaption>Nutmeg</figcaption></figure>
+    <figure><img src="data/fft_derek.png" alt="FFT Derek"><figcaption>FFT (Derek)</figcaption></figure>
+    <figure><img src="data/fft_nutmeg.png" alt="FFT Nutmeg"><figcaption>FFT (Nutmeg)</figcaption></figure>
+    <figure><img src="data/fft_hybrid.png" alt="FFT Hybrid"><figcaption>FFT (Hybrid)</figcaption></figure>
+    <figure class="wide"><img src="data/hybrid_derek_nutmeg.png" alt="Hybrid"><figcaption>Final hybrid: Derek + Nutmeg</figcaption></figure>
+  </div>
+
+  <h3>More Hybrids</h3>
+  <div class="grid">
+    <figure><img src="data/kobe.jpg" alt="Kobe"><figcaption>Kobe</figcaption></figure>
+    <figure><img src="data/michael_jordan.jpg" alt="MJ"><figcaption>Michael Jordan</figcaption></figure>
+    <figure><img src="data/hybrid_kb_mj.png" alt="Hybrid KB+MJ"><figcaption>Hybrid: Kobe + MJ</figcaption></figure>
+
+    <figure><img src="data/orca.jpg" alt="orca"><figcaption>Orca 1</figcaption></figure>
+    <figure><img src="data/orcas.jpg" alt="orcas"><figcaption>Orca 2</figcaption></figure>
+    <figure><img src="data/hybrid_orcas.png" alt="Hybrid orcas"><figcaption>Hybrid: Orcas</figcaption></figure>
+  </div>
+</section>
+
+<section id="p23_24">
+  <h2>Part 2: Applications — <strong>2.3 + 2.4 Stacks & Multiresolution Blending</strong></h2>
+  <div class="overview">
+    <p>
+      I build Gaussian/Laplacian <em>stacks</em> (no downsampling) and recreate Figure 3.42 for Apple+Orange. I did this by first creating Gaussian stacks for both images by repeatedly applying a Gaussian filter. Then, I computed the Laplacian stacks by subtracting each level of the Gaussian stack from the next level, capturing the high-frequency details at each scale.
+      Then I do multiresolution blending (Oraple) and include two additional custom blends with irregular masks. These irregular masks allow for more complex blending effects, such as blending a starry night sky with a cityscape or merging a forest scene with a snowy landscape and even adding a basketball to a portrait. The blending is done by combining the Laplacian stacks of the two images according to the mask, and then reconstructing the final image from the blended Laplacian stack.
+    </p>
+  </div>
+
+  <h3>Figure 3.42 — Apple / Orange</h3>
+  <div class="grid">
+    <figure><img src="data/gauss_apple.png" alt="G apple"><figcaption>Gaussian stack — Apple</figcaption></figure>
+    <figure><img src="data/gauss_orange.png" alt="G orange"><figcaption>Gaussian stack — Orange</figcaption></figure>
+    <figure><img src="data/lapl_apple.png" alt="L apple"><figcaption>Laplacian stack — Apple</figcaption></figure>
+    <figure><img src="data/lapl_orange.png" alt="L orange"><figcaption>Laplacian stack — Orange</figcaption></figure>
+    <figure class="wide"><img src="data/figure_342.png" alt="Fig342"><figcaption>Recreation: levels 0,2,4 and averaged column</figcaption></figure>
+    <figure class="wide"><img src="data/orapple.png" alt="Oraple"><figcaption>Oraple (vertical seam mask)</figcaption></figure>
+  </div>
+
+  <h3>Custom Blend 1 — Starry Night × Over the Rhône (Irregular / Triangle)</h3>
+  <div class="grid">
+    <figure><img src="data/starry_night.jpeg" alt="Starry Night"><figcaption>Starry Night</figcaption></figure>
+    <figure><img src="data/vangogh.jpeg" alt="Rhône"><figcaption>Over the Rhône</figcaption></figure>
+    <figure><img src="data/tri_mask.png" alt="Triangle mask"><figcaption>Triangle / irregular mask</figcaption></figure>
+    <figure class="wide"><img src="data/starry_gogh.png" alt="Blend"><figcaption>Blended result</figcaption></figure>
+  </div>
+
+  <h3>Custom Blend 2 — Forest × Snowy (Horizontal mask)</h3>
+  <div class="grid">
+    <figure><img src="data/forest.jpeg" alt="forest"><figcaption>Forest</figcaption></figure>
+    <figure><img src="data/snowy.jpeg" alt="snowy"><figcaption>Snowy lake</figcaption></figure>
+    <figure class="wide"><img src="data/snowy_forest.png" alt="snowy forest"><figcaption>Blended result (horizontal mask)</figcaption></figure>
+  </div>
+
+  <h3>Custom Blend 3 — Basketball on Shoulder (Circular mask)</h3>
+  <div class="grid">
+    <figure><img src="data/ball.jpeg" alt="ball"><figcaption>Basketball</figcaption></figure>
+    <figure><img src="data/something.jpeg" alt="subject"><figcaption>Portrait</figcaption></figure>
+    <figure><img src="data/circular_mask.png" alt="mask"><figcaption>Circular mask (viz)</figcaption></figure>
+    <figure><img src="data/stacks.png" alt="stacks"><figcaption>Stacks</figcaption></figure>
+    <figure class="wide"><img src="data/basketball_something.png" alt="basketball blend"><figcaption>Final blend (on right shoulder)</figcaption></figure>
+  </div>
+</section>
+
+<section>
+  <h2>Learnings</h2>
+  <div class="overview">
+    <p>
+      This project deepened my understanding of convolution, filtering, and frequency-domain techniques in image processing. My favorite thing I learned has to be how blending works using Laplacian stacks and masks. I liked how it allowed for seamless merging of images based on varying masks, creating visually interesting composites.
+      Overall, this project provided hands-on experience with fundamental image processing techniques and their practical applications.
+    </p>
+</section>
+<footer>
+  <p>CS 180 Project 2 — Frequency-Domain Methods - christopherkim@berkeley.edu</p>
+</footer>
+</body>
+</html>
