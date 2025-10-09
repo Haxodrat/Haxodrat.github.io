@@ -1,1 +1,298 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Project 3: Homographies, Warping & Mosaics</title>
+  <base href="./CS%20180%20Proj3%20Results/">
+  <style>
+    :root{
+      --bg:#0f1115; --card:#161a22; --ink:#e6e9ef; --muted:#9aa3b2; --accent:#76a9ff;
+    }
+    *{box-sizing:border-box}
+    body{margin:0; font:16px/1.55 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; color:var(--ink); background:var(--bg)}
+    header{padding:36px 20px 10px; text-align:center}
+    header h1{margin:0; font-weight:700; letter-spacing:.2px}
+    header p{color:var(--muted); margin:.4rem 0 0}
+    main{max-width:1100px; margin:0 auto; padding:20px}
+    section{background:var(--card); border:1px solid #222838; border-radius:16px; padding:22px; margin:18px 0 28px}
+    h2{margin:0 0 10px; font-size:1.35rem}
+    .subtitle{color:var(--muted); margin:0 0 16px}
+    .grid{display:grid; gap:14px}
+    .g-2{grid-template-columns:repeat(2, minmax(0,1fr))}
+    .g-3{grid-template-columns:repeat(3, minmax(0,1fr))}
+    @media (max-width:850px){.g-2,.g-3{grid-template-columns:1fr}}
+    figure{margin:0; border-radius:12px; overflow:hidden; background:#0b0e13; border:1px solid #1f2431}
+    figcaption{padding:8px 10px; color:var(--muted); font-size:.92rem; border-top:1px solid #1f2431}
+    img{display:block; width:100%; height:auto}
+    code,kbd{background:#0b0f19; padding:.12rem .38rem; border-radius:6px; border:1px solid #232836}
+    .pill{display:inline-block; padding:2px 10px; border-radius:999px; background:#0e1420; border:1px solid #20283a; color:var(--muted); font-size:.82rem; margin-right:8px}
+    .two-col{columns:2; column-gap:22px}
+    @media (max-width:700px){.two-col{columns:1}}
+    a{color:var(--accent); text-decoration:none}
+    .nice-steps{counter-reset:step; list-style:none; margin:0; padding:0}
+    .nice-steps li{
+        position:relative; margin:10px 0; padding:12px 14px 12px 46px;
+        background:#0b0f19; border:1px solid #232836; border-radius:12px
+    }
+    .nice-steps li::before{
+        counter-increment:step; content:counter(step);
+        position:absolute; left:12px; top:10px; width:24px; height:24px;
+        border-radius:50%; display:grid; place-items:center;
+        background:#101626; border:1px solid #263047; color:#9ab3ff;
+        font-weight:700; font-size:.9rem
+    }
+    footer{color:var(--muted); text-align:center; padding:28px 0 40px}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>CS180 Project 3: Image Warping & Mosaicing</h1>
+    <p>Author: <em>Christopher Kim</em> • Term: <em>Fall 2025</em></p>
+  </header>
+
+  <main>
+
+    <!-- ================= A.1 ================= -->
+    <section id="a1">
+      <h2>A.1 — Shoot the Pictures</h2>
+      <p class="subtitle">Two or more photos per scene with projective changes (fixed COP, camera rotates).</p>
+
+      <div class="grid g-3">
+        <!-- Scene 1 thumbnails -->
+        <figure>
+          <a href="data/Set1P1.jpeg" target="_blank">
+            <img src="data/Set1P1.jpeg" alt="Scene 1 - Photo 1">
+          </a>
+          <figcaption>Scene 1 — Photo 1</figcaption>
+        </figure>
+        <figure>
+          <a href="data/Set1P2.jpeg" target="_blank">
+            <img src="data/Set1P2.jpeg" alt="Scene 1 - Photo 2">
+          </a>
+          <figcaption>Scene 1 — Photo 2</figcaption>
+        </figure>
+        <figure>
+          <a href="data/Set1P3.jpeg" target="_blank">
+            <img src="data/Set1P3.jpeg" alt="Scene 1 - Photo 3 (optional)">
+          </a>
+          <figcaption>Scene 1 — Photo 3 (optional)</figcaption>
+        </figure>
+      </div>
+
+      <div class="grid g-3" style="margin-top:10px">
+        <!-- Scene 2 thumbnails -->
+        <figure>
+          <a href="data/Set2P1.jpeg" target="_blank">
+            <img src="data/Set2P1.jpeg" alt="Scene 2 - Photo 1">
+          </a>
+          <figcaption>Scene 2 — Photo 1</figcaption>
+        </figure>
+        <figure>
+          <a href="data/Set2P2.jpeg" target="_blank">
+            <img src="data/Set2P2.jpeg" alt="Scene 2 - Photo 2">
+          </a>
+          <figcaption>Scene 2 — Photo 2</figcaption>
+        </figure>
+        <figure>
+          <a href="data/Set2P3.jpeg" target="_blank">
+            <img src="data/Set2P3.jpeg" alt="Scene 2 - Photo 3 (optional)">
+          </a>
+          <figcaption>Scene 2 — Photo 3 (optional)</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- ================= A.2 ================= -->
+    <section id="a2">
+      <h2>A.2 — Recover Homographies</h2>
+      <p class="subtitle">
+        Built the linear system from correspondences and solved via SVD (DLT). I visualized point pairs and printed the
+        first few rows of <code>A</code> plus the final <code>H</code>.
+      </p>
+
+      <div class="grid g-2">
+        <figure>
+          <a href="data/Set1P1Corr.png" target="_blank">
+            <img src="data/Set1P1Corr.png" alt="Image 1 with correspondences">
+          </a>
+          <figcaption>Image 1 — clicked correspondences</figcaption>
+        </figure>
+        <figure>
+          <a href="data/Set1P2Corr.png" target="_blank">
+            <img src="data/Set1P2Corr.png" alt="Image 2 with correspondences">
+          </a>
+          <figcaption>Image 2 — clicked correspondences</figcaption>
+        </figure>
+      </div>
+
+      <div class="two-col" style="margin-top:14px">
+        <p><span class="pill">System of Eqs</span></p>
+        <figure>
+            <a href="data/Sys_of_eqs.png" target="_blank">
+              <img src="data/Sys_of_eqs.png" alt="System of equations">
+            </a>
+            <figcaption>System of Equations</figcaption>
+        </figure>
+        <p><span class="pill">Result</span>
+        <figure>
+            <a href="data/Set1P1_P2_H.png" target="_blank">
+                <img src="data/Set1P1_P2_H.png" alt="Homography">
+            </a>
+            <figcaption>Homography</figcaption>
+        </figure>
+        </p>
+      </div>
+    </section>
+
+    <!-- ================= A.3 ================= -->
+    <section id="a3">
+      <h2>A.3 — Warp the Images (Inverse Warping)</h2>
+      <p class="subtitle">Implemented <code>warpImageNearestNeighbor</code> and <code>warpImageBilinear</code>, produced overlays, and did rectification for 2 images.</p>
+
+      <div class="grid g-2">
+        <figure>
+          <a href="data/Set1P1_WarpedNN.png" target="_blank"><img src="data/Set1P1_WarpedNN.png" alt="Warped (NN)"></a>
+          <figcaption>Warped Image → reference (Nearest Neighbor)</figcaption>
+        </figure>
+        <figure>
+          <a href="data/Set1_P1_WarpedBil.png" target="_blank"><img src="data/Set1_P1_WarpedBil.png" alt="Warped (Bilinear)"></a>
+          <figcaption>Warped Image → reference (Bilinear)</figcaption>
+        </figure>
+      </div>
+
+      <div class="grid g-2" style="margin-top:10px">
+        <figure>
+          <a href="data/Set1_P1_P2_OverlayNN.png" target="_blank"><img src="data/Set1_P1_P2_OverlayNN.png" alt="Overlay NN"></a>
+          <figcaption>Alpha-weighted overlay (NN)</figcaption>
+        </figure>
+        <figure>
+          <a href="data/Set1_P1_P2_OverlayBil.png" target="_blank"><img src="data/Set1_P1_P2_OverlayBil.png" alt="Overlay Bilinear"></a>
+          <figcaption>Alpha-weighted overlay (Bilinear)</figcaption>
+        </figure>
+      </div>
+
+      <h3 style="margin:18px 0 8px">Rectification</h3>
+      <div class="grid g-2">
+        <figure>
+          <a href="data/Set1P1_Rect.png" target="_blank"><img src="data/Set1P1_Rect.png" alt="Original for rectification"></a>
+          <figcaption>Original image with chosen quad</figcaption>
+        </figure>
+        <figure>
+            <a href="data/Set1_P1_Rect_NN.png" target="_blank"><img src="data/Set1_P1_Rect_NN.png" alt="Rectified (Nearest Neighbor)"></a>
+            <figcaption>Rectified result (Nearest Neighbor)</figcaption>
+        </figure>
+        <figure>
+          <a href="data/Set1_P1_Rect_Bil.png" target="_blank"><img src="data/Set1_P1_Rect_Bil.png" alt="Rectified (Bilinear)"></a>
+          <figcaption>Rectified result (Bilinear) — windows become axis-aligned</figcaption>
+        </figure>
+        <figure>
+            <a href="data/Set1P2_Rect.png" target="_blank"><img src="data/Set1P2_Rect.png" alt="Original for rectification"></a>
+            <figcaption>Original image with chosen quad</figcaption>
+        </figure>
+        <figure>
+            <a href="data/Set1_P2_Rect_NN.png" target="_blank"><img src="data/Set1_P2_Rect_NN.png" alt="Rectified (Nearest Neighbor)"></a>
+            <figcaption>Rectified result (Nearest Neighbor)</figcaption>
+        </figure>
+        <figure>
+            <a href="data/Set1_P2_Rect_Bil.png" target="_blank"><img src="data/Set1_P2_Rect_Bil.png" alt="Rectified (Bilinear)"></a>
+            <figcaption>Rectified result (Bilinear) — windows become axis-aligned</figcaption>
+        </figure>
+      </div>
+
+      <p class="subtitle" style="margin-top:10px">
+        <strong>NN vs Bilinear:</strong> NN is faster but jaggier (stair-step artifacts on edges); Bilinear is smoother and
+        reduces aliasing, especially visible on window frames and text.
+      </p>
+    </section>
+
+    <!-- ================= A.4 ================= -->
+    <section id="a4">
+      <h2>A.4 — Blend the Images into a Mosaic</h2>
+      <p class="subtitle">Computed panorama bounds, translated all warps into a common canvas, and blended with feathered alpha (distance-transform weights).</p>
+
+      <div class="grid g-2">
+        <figure>
+            <a href="data/Set1P1.jpeg" target="_blank"><img src="data/Set1P1.jpeg" alt="Original Set 1 P 1"></a>
+            <figcaption>Original p1</figcaption>
+        </figure>
+        <figure>
+            <a href="data/Set1P2.jpeg" target="_blank"><img src="data/Set1P2.jpeg" alt="Original Set 1 P 2"></a>
+            <figcaption>Original p2</figcaption>
+        </figure>
+        <figure>
+          <a href="data/Set1_P1_P2_Mosaic_NN.png" target="_blank"><img src="data/Set1_P1_P2_Mosaic_NN.png" alt="Mosaic NN"></a>
+          <figcaption>Scene 1 Mosaic (Nearest Neighbor)</figcaption>
+        </figure>
+        <figure>
+          <a href="data/Set1_P1_P2_Mosaic_Bil.png" target="_blank"><img src="data/Set1_P1_P2_Mosaic_Bil.png" alt="Mosaic Bilinear"></a>
+          <figcaption>Scene 1 Mosaic (Bilinear + feathered alpha)</figcaption>
+        </figure>
+      </div>
+
+      <div class="grid g-2">
+        <figure>
+            <a href="data/Set1P3.jpeg" target="_blank"><img src="data/Set1P3.jpeg" alt="Original Set 1 P 3"></a>
+            <figcaption>Original p3</figcaption>
+        </figure>
+        <figure>
+            <a href="data/Set1P4.jpeg" target="_blank"><img src="data/Set1P4.jpeg" alt="Original Set 1 P 4"></a>
+            <figcaption>Original p4</figcaption>
+        </figure>
+        <figure>
+          <a href="data/Set1_P3_P4_Mosaic_NN.png" target="_blank"><img src="data/Set1_P3_P4_Mosaic_NN.png" alt="Mosaic NN"></a>
+          <figcaption>Scene 1 Mosaic (Nearest Neighbor)</figcaption>
+        </figure>
+        <figure>
+          <a href="data/Set1_P3_P4_Mosaic_Bil.png" target="_blank"><img src="data/Set1_P3_P4_Mosaic_Bil.png" alt="Mosaic Bilinear"></a>
+          <figcaption>Scene 1 Mosaic (Bilinear + feathered alpha)</figcaption>
+        </figure>
+      </div>
+
+      <div class="grid g-2" style="margin-top:10px">
+        <figure>
+            <a href="data/Set2P1.jpeg" target="_blank"><img src="data/Set2P1.jpeg" alt="Original Set 2 P 1"></a>
+            <figcaption>Original p1</figcaption>
+        </figure>
+        <figure>
+            <a href="data/Set2P2.jpeg" target="_blank"><img src="data/Set2P2.jpeg" alt="Original Set 2 P 2"></a>
+            <figcaption>Original p2</figcaption>
+        </figure>
+        
+        <figure>
+          <a href="data/Set2_P1_P2_Mosaic_NN.png" target="_blank"><img src="data/Set2_P1_P2_Mosaic_NN.png" alt="Mosaic 2 NN"></a>
+          <figcaption>Scene 2 Mosaic (Nearest Neighbor)</figcaption>
+        </figure>
+        <figure>
+          <a href="data/Set2_P1_P2_Mosaic_Bil.png" target="_blank"><img src="data/Set2_P1_P2_Mosaic_Bil.png" alt="Mosaic 2 Bilinear"></a>
+          <figcaption>Scene 2 Mosaic (Bilinear + feathered alpha)</figcaption>
+        </figure>
+      </div>
+
+    <div class="subtitle"><span class="pill">Blending Procedure</span></div>
+    <ol class="nice-steps">
+        <li>Project each image’s four corners with its homography to find global canvas bounds.</li>
+        <li>Translate homographies so all warped pixels land in positive coordinates.</li>
+        <li>Inverse-warp every image onto the canvas (nearest neighbor or bilinear).</li>
+        <li>Create an alpha mask of valid pixels for each warped image.</li>
+        <li>Compute feather weights via distance transform on the alpha masks.</li>
+        <li>Accumulate per-pixel <code>sum(weights * pixels)</code> and <code>sum(weights)</code>, then normalize.</li>
+    </ol>
+    <p class="subtitle" style="margin-top:8px">
+        Feathered distance-transform weights greatly reduce seams compared to overwrite blending.
+    </p>
+
+    </section>
+
+    <footer>
+        <p>All figures open full-size in a new tab. Shoutout
+        <a href="https://cal-cs180.github.io/fa23/hw/proj3/tool.html" target="_blank" rel="noopener">
+            the CS180 correspondence tool
+        </a>.
+        </p>
+    </footer>
+  
+  </main>
+</body>
+</html>
