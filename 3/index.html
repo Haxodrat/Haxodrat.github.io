@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -283,6 +282,118 @@
         Feathered distance-transform weights greatly reduce seams compared to overwrite blending.
     </p>
 
+    </section>
+
+    <!-- ================= B.1 ================= -->
+    <section id="b1">
+      <h2>B.1 — Harris Corner Detection</h2>
+      <p class="subtitle">Detected Harris corners on each image and then applied Adaptive Non-Maximal Suppression (ANMS) to retain spatially well-distributed points.</p>
+
+      <div class="grid g-2">
+        <figure>
+          <a href="data/Harris_Corners_No_ANMS.png" target="_blank">
+            <img src="data/Harris_Corners_No_ANMS.png" alt="Harris corners no ANMS">
+          </a>
+          <figcaption>Harris Corners without ANMS</figcaption>
+        </figure>
+        <figure>
+          <a href="data/Harris_Corners_1.png" target="_blank">
+            <img src="data/Harris_Corners_1.png" alt="Harris corners with ANMS">
+          </a>
+          <figcaption>Harris Corners with ANMS (Set 1)</figcaption>
+        </figure>
+      </div>
+      <div class="grid g-2" style="margin-top:10px">
+        <figure>
+          <a href="data/HarrisCorners_2_No_ANMS.png" target="_blank">
+            <img src="data/HarrisCorners_2_No_ANMS.png" alt="Set2 Harris no ANMS">
+          </a>
+          <figcaption>Set 2 — Harris Corners without ANMS</figcaption>
+        </figure>
+        <figure>
+          <a href="data/HarrisCorners_2.png" target="_blank">
+            <img src="data/HarrisCorners_2.png" alt="Set2 Harris with ANMS">
+          </a>
+          <figcaption>Set 2 — Harris Corners with ANMS</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- ================= B.2 ================= -->
+    <section id="b2">
+      <h2>B.2 — Feature Descriptor Extraction</h2>
+      <p class="subtitle">Extracted normalized 8×8 patches around interest points. Applied mean subtraction and normalization to build robust descriptors.</p>
+
+      <div class="grid g-2">
+        <figure>
+          <a href="data/desc_1.png" target="_blank">
+            <img src="data/desc_1.png" alt="Sample descriptors set1">
+          </a>
+          <figcaption>Sample 8×8 descriptors from Set 1</figcaption>
+        </figure>
+        <figure>
+          <a href="data/descs_2.png" target="_blank">
+            <img src="data/descs_2.png" alt="Sample descriptors set2">
+          </a>
+          <figcaption>Sample 8×8 descriptors from Set 2</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- ================= B.3 ================= -->
+    <section id="b3">
+      <h2>B.3 — Feature Matching</h2>
+      <p class="subtitle">Implemented feature matching with Lowe’s ratio test on Euclidean distances. Retained pairs passing the threshold and visualized matches across image pairs.</p>
+
+      <div class="grid g-2">
+        <figure>
+          <a href="data/Matches_34_1.png" target="_blank">
+            <img src="data/Matches_34_1.png" alt="Feature matches example">
+          </a>
+          <figcaption>Raw matches between Set 1 images</figcaption>
+        </figure>
+        <figure>
+          <a href="data/Matches17_Ransac_1.png" target="_blank">
+            <img src="data/Matches17_Ransac_1.png" alt="Feature matches example 2">
+          </a>
+          <figcaption>Raw matches between Set 2 images</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- ================= B.4 ================= -->
+    <section id="b4">
+      <h2>B.4 — RANSAC for Robust Homography</h2>
+      <p class="subtitle">Ran 4-point RANSAC to estimate homographies robustly. Used inlier sets to compute final <code>H</code> and build automatic mosaics.</p>
+
+      <div class="grid g-2">
+        <figure>
+          <a href="data/Mosaic_R_1.png" target="_blank">
+            <img src="data/Mosaic_R_1.png" alt="Mosaic 1">
+          </a>
+          <figcaption>Automatic Mosaic 1</figcaption>
+        </figure>
+        <figure>
+          <a href="data/Mosaic_2_R.png" target="_blank">
+            <img src="data/Mosaic_2_R.png" alt="Mosaic 2">
+          </a>
+          <figcaption>Automatic Mosaic 2</figcaption>
+        </figure>
+      </div>
+      <div class="grid g-2" style="margin-top:10px">
+        <figure>
+          <a href="data/Mosaic_3_R.png" target="_blank">
+            <img src="data/Mosaic_3_R.png" alt="Mosaic 3">
+          </a>
+          <figcaption>Automatic Mosaic 3</figcaption>
+        </figure>
+        <figure>
+          <a href="data/First_R_Mosaic.png" target="_blank">
+            <img src="data/First_R_Mosaic.png" alt="First mosaic test">
+          </a>
+          <figcaption>Additional RANSAC Mosaic</figcaption>
+        </figure>
+      </div>
     </section>
 
     <footer>
