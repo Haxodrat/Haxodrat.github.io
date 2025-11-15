@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>CS180 Project 4 – NeRF</title>
+  <base href="./CS%20180%20Proj4%20Results/">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #111827;
+      --accent: #38bdf8;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+        "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #1f2937 0, #020617 55%);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    a { color: var(--accent); }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: blur(14px);
+      background: rgba(15, 23, 42, 0.9);
+      border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+    }
+    .header-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .title {
+      font-size: 1.2rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+    }
+    nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      font-size: 0.85rem;
+    }
+    nav a {
+      text-decoration: none;
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+    }
+    nav a:hover {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: rgba(56, 189, 248, 0.6);
+    }
+
+    main {
+      max-width: 1100px;
+      margin: 1.5rem auto 3rem;
+      padding: 0 1.5rem 3rem;
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 0.4rem;
+    }
+    .subtitle {
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin-bottom: 1.75rem;
+    }
+
+    section {
+      margin-bottom: 3rem;
+      padding: 1.75rem 1.5rem 1.5rem;
+      background: radial-gradient(circle at top, #111827 0, #020617 70%);
+      border-radius: 1rem;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      box-shadow: 0 18px 45px rgba(15, 23, 42, 0.85);
+    }
+
+    section h2 {
+      margin-top: 0;
+      margin-bottom: 0.4rem;
+      font-size: 1.4rem;
+    }
+
+    .section-tag {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--accent);
+      margin-bottom: 0.4rem;
+    }
+
+    .section-text {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 1rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.25rem;
+      margin-top: 0.75rem;
+    }
+
+    figure {
+      margin: 0;
+      padding: 0.9rem;
+      background: rgba(15, 23, 42, 0.95);
+      border-radius: 0.9rem;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+    }
+    figure img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 0.6rem;
+    }
+    figcaption {
+      margin-top: 0.5rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .wide-fig {
+      max-width: 100%;
+      margin-top: 0.8rem;
+    }
+    .wide-fig img {
+      max-height: 420px;
+      object-fit: contain;
+      margin: 0 auto;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+      gap: 1.5rem;
+    }
+    @media (max-width: 850px) {
+      .two-col {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    .code-box {
+      font-family: "SF Mono", ui-monospace, Menlo, Monaco, Consolas,
+        "Liberation Mono", "Courier New", monospace;
+      font-size: 0.8rem;
+      background: rgba(15, 23, 42, 0.85);
+      border-radius: 0.7rem;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      padding: 0.8rem 0.9rem;
+      color: var(--muted);
+      white-space: pre-line;
+    }
+
+    footer {
+      max-width: 1100px;
+      margin: 0 auto 2.5rem;
+      padding: 0 1.5rem;
+      color: var(--muted);
+      font-size: 0.8rem;
+      text-align: right;
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <div class="title">CS180 Project 4 – Neural Radiance Fields</div>
+    <nav>
+      <a href="#part0">Part 0</a>
+      <a href="#part1">Part 1</a>
+      <a href="#part2">Part 2</a>
+      <a href="#part26">Part 2.6</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <h1>Neural Radiance Fields</h1>
+  <p class="subtitle">
+    Camera calibration, 2D neural fields, multi-view NeRF on the LEGO scene, and
+    a custom NeRF trained on my crocheted dragon dataset.
+  </p>
+
+  <!-- Part 0 -------------------------------------------------------------->
+  <section id="part0">
+    <div class="section-tag">Part 0</div>
+    <h2>Camera Calibration and 3D Scanning</h2>
+    <p class="section-text">
+      I calibrated my phone camera using an ArUco tag and visualized the recovered
+      camera poses in Viser. Below are screenshots of the frustum visualization,
+      along with an example of an undistorted training image.
+    </p>
+
+    <div class="grid">
+      <figure>
+        <img src="code/~/Results/first.png" alt="Viser frustums screenshot 1" />
+        <figcaption>Camera frustums visualization (view 1).</figcaption>
+      </figure>
+      <figure>
+        <img src="code/~/Results/second.png" alt="Viser frustums screenshot 2" />
+        <figcaption>Camera frustums visualization (view 2).</figcaption>
+      </figure>
+      <figure>
+        <img src="code/~/Results/undistorted.png" alt="Example undistorted image" />
+        <figcaption>Example undistorted image from my object dataset.</figcaption>
+      </figure>
+    </div>
+
+    <div class="code-box" style="margin-top:1rem;">
+      Calibration summary (from <code>cam_calib.npz</code>):<br/>
+      • Intrinsics matrix K loaded from ArUco-based calibration.<br/>
+      • Distortion coefficients used to undistort all training images.<br/>
+      • Estimated poses saved in <code>object_poses.npz</code>.
+    </div>
+  </section>
+
+  <!-- Part 1 -------------------------------------------------------------->
+  <section id="part1">
+    <div class="section-tag">Part 1</div>
+    <h2>Fit a Neural Field to a 2D Image</h2>
+  
+    <div class="two-col">
+      <div>
+        <p class="section-text">
+          In Part 1, I trained a sinusoidal MLP to regress the RGB color at each
+          pixel of a single image. The network takes 2D pixel coordinates as input,
+          applies sinusoidal positional encoding, and predicts the corresponding RGB
+          value. I experimented with different positional encoding frequencies and
+          network widths, and tracked PSNR over training to study how these
+          hyperparameters affect reconstruction quality.
+        </p>
+  
+        <h3>Model architecture</h3>
+        <p class="section-text">
+          For Part 1, I implemented a coordinate-based neural field consisting of a
+          4-layer fully connected MLP with ReLU activations and a final Sigmoid
+          layer, trained to map 2D pixel coordinates—embedded using sinusoidal
+          positional encoding—into RGB values. The input dimensionality is
+          \(2 + 4L\), where \(L\) is the maximum encoding frequency. I trained the
+          network for 2000–3000 iterations using Adam (learning rate
+          \(1\times 10^{-2}\)), sampling 10,000 random pixels per iteration. To
+          study hyperparameters, I evaluated a 2×2 grid with width ∈ {128, 256} and
+          encoding frequency \(L \in \{5, 10\}\). Higher \(L\) allowed the model to
+          capture sharper high-frequency details, while wider networks improved
+          expressiveness and PSNR. The best reconstructions were obtained with
+          width 256 and \(L = 10\); smaller widths or lower frequencies produced
+          smoother, blurrier outputs.
+        </p>
+  
+        <div class="code-box">
+          <strong>Model architecture (2D neural field)</strong><br/>
+          • Input: normalized (x, y) pixel coordinates with sinusoidal positional encoding (L = 5 or 10)<br/>
+          • MLP: 4 fully connected layers, hidden width 128 or 256, ReLU activations<br/>
+          • Output: 3D RGB in [0, 1] via Sigmoid<br/>
+          • Loss: mean squared error (MSE) between predicted and ground-truth RGB<br/>
+          • Optimizer: Adam, learning rate 1e-2, batch size 10,000 random pixels/iteration<br/>
+        </div>
+      </div>
+      <figure class="wide-fig">
+        <img src="code/~/Results/arctic_fox.png" alt="Target fox image" />
+        <figcaption>Target 2D image used for the neural field (arctic fox).</figcaption>
+      </figure>
+    </div>
+
+    <div class="grid" style="margin-top:1.1rem;">
+      <figure>
+        <img src="code/~/Results/fox_snapshots.png" alt="Fox training progression" />
+        <figcaption>Training progression for the fox image under different hyperparameters.</figcaption>
+      </figure>
+      <figure>
+        <img src="code/~/Results/final_results_fox.png" alt="Fox final reconstructions" />
+        <figcaption>Final reconstructions for 2×2 grid of (L, width) settings.</figcaption>
+      </figure>
+      <figure>
+        <img src="code/~/Results/fox_psnr.png" alt="Fox PSNR curve" />
+        <figcaption>PSNR curve over iterations for one representative setting.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- Part 2 -------------------------------------------------------------->
+  <section id="part2">
+    <div class="section-tag">Part 2</div>
+    <h2>Fit a Neural Radiance Field from Multi-view LEGO Images</h2>
+
+
+  <h3>2.1 Create Rays from Cameras</h3>
+  <p class="section-text">
+    I first implemented homogeneous-coordinate helpers <code>to_homogeneous</code> and
+    <code>from_homogeneous</code>, plus a general <code>transform(T, x)</code> function to apply 4×4
+    camera-to-world transforms. Using the intrinsic matrix <code>K</code>, I wrote
+    <code>pixel_to_camera</code> to map pixel coordinates <code>(u, v)</code> (offset by 0.5 to hit the
+    pixel center) into camera-space points at depth <code>s</code>. Then
+    <code>pixel_to_ray(K, c2w, uv)</code> converts those camera-space points into world space, using
+    the translation of <code>c2w</code> as the ray origin and normalizing
+    <code>x_w − r_o</code> to get the ray direction.
+  </p>
+
+  <h3>2.2 &amp; 2.3 Sampling and Dataloader</h3>
+  <p class="section-text">
+    I wrapped the multi-view image data in a <code>RaysData</code> class. In the constructor I build a
+    full pixel grid for all training images, flatten it, and store the corresponding camera index and
+    RGB value for each pixel. The private helper <code>_rays_for_indices</code> looks up the right
+    <code>c2w</code> and pixel coordinates for a batch of indices and calls <code>pixel_to_ray</code>.
+    <code>sample_rays</code> draws a global random batch of rays across all images, while
+    <code>rays_for_camera</code> returns all rays for a single camera, which I use for rendering
+    full images. For sampling along rays, <code>sample_along_rays</code> creates stratified depth
+    bins between <code>near</code> and <code>far</code>, optionally perturbs them during training, and
+    returns both the sampled depths and the 3D points <code>r_o + t·r_d</code>. I visualized cameras,
+    rays, and samples in Viser to verify that the rays stayed inside the frusta and that the UV
+    indexing was correct.
+  </p>
+
+  <h3>2.4 Neural Radiance Field Network</h3>
+  <p class="section-text">
+    My NeRF follows the standard 8-layer MLP design. Spatial positions <code>x ∈ ℝ³</code> are encoded
+    with sinusoidal positional encoding at frequency level <code>L_x = 10</code>, and viewing
+    directions <code>d ∈ ℝ³</code> with <code>L_d = 4</code>. The coordinate branch passes PE(x)
+    through four 256-wide ReLU layers, then concatenates the original PE(x) (a skip connection) and
+    runs four more 256-wide layers. A linear layer with ReLU outputs a nonnegative density
+    <code>σ</code>, and a separate color head first maps the shared features through another 256-dim
+    layer, concatenates PE(d), then uses a 128-unit ReLU layer and a final linear+sigmoid to produce
+    RGB in [0, 1]. All linear layers are Kaiming-initialized and the density bias is initialized to 3
+    to encourage nonzero opacity early in training.
+  </p>
+
+  <h3>2.5 Volume Rendering and Training</h3>
+  <p class="section-text">
+    For volume rendering, I implemented <code>volrend</code> using the standard NeRF formulation.
+    Given per-sample densities <code>σ_i</code> and colors <code>c_i</code> with uniform step size
+    <code>Δt</code>, I compute <code>α_i = 1 − exp(−σ_i Δt)</code>, cumulative transmittance
+    <code>T_i = exp(−∑_{j &lt; i} σ_j Δt)</code>, and weights <code>w_i = T_i α_i</code>. The final
+    color for each ray is <code>∑_i w_i c_i</code>. <code>render_rays</code> ties everything together:
+    it samples points along a batch of rays (using <code>RaysData.sample_along_rays</code>), evaluates
+    the NeRF on those points and directions, reshapes the outputs, and calls <code>volrend</code> to
+    get RGB predictions. <code>render_image_for_camera</code> renders full images by chunking rays for
+    memory efficiency. Finally, <code>train_nerf</code> runs an Adam optimizer (lr = 5e-4) on random
+    ray batches, logs train/validation PSNR, saves intermediate snapshots, and uses the trained model
+    plus provided test poses to produce a spherical Lego rendering video.
+  </p>
+
+    <p class="section-text">
+      For the LEGO scene, I implemented a NeRF that samples points along camera rays,
+      predicts density and color with a positional-encoded MLP, and uses volumetric
+      rendering to synthesize new views. I trained on the provided LEGO dataset and
+      evaluated on a held-out validation set.
+    </p>
+
+    <div class="two-col">
+      <figure class="wide-fig">
+        <img src="code/~/Results/LEGO_NERF_progression.png"
+             alt="LEGO NeRF training progression snapshots" />
+        <figcaption>
+          Training progression on the LEGO validation view (snapshots over iterations).
+        </figcaption>
+      </figure>
+      <figure class="wide-fig">
+        <img src="code/~/Results/LEGO_PSNR.png" alt="LEGO PSNR curve" />
+        <figcaption>LEGO NeRF PSNR over iterations on the validation set.</figcaption>
+      </figure>
+      <figure class="wide-fig">
+        <img src="code/~/Results/eighth.png" alt="LEGO Viser with 100 rays" />
+        <figcaption>LEGO Viser</figcaption>
+      </figure>
+      <figure class="wide-fig">
+        <img src="code/~/Results/ninth.png" alt="LEGO Viser" />
+        <figcaption>LEGO Viser</figcaption>
+      </figure>
+    </div>
+
+    <figure class="wide-fig" style="margin-top:1.5rem;">
+      <img src="code/lego_nerf_video.gif" alt="LEGO spherical rendering GIF" />
+      <figcaption>
+        Spherical rendering video of the LEGO bulldozer from test camera poses.
+      </figcaption>
+    </figure>
+  </section>
+
+  <!-- Part 2.6 ------------------------------------------------------------>
+  <section id="part26">
+    <div class="section-tag">Part 2.6</div>
+    <h2>Training NeRF on My Own Data</h2>
+
+    <p class="section-text">
+        For training on my own object, I experimented with several hyperparameters to
+        stabilize reconstruction while keeping runtime manageable. Because my capture 
+        setup was much closer to the object than the Lego dataset, I reduced the 
+        <code>near</code> and <code>far</code> bounds to values closer to zero so that sampled
+        points tightly covered the actual geometry instead of wasting samples in empty 
+        space. I also lowered the rays-per-batch value to speed up each optimization 
+        step on my hardware, which helped me iterate faster while still achieving
+        reasonable PSNR. Through these adjustments—tighter depth bounds, smaller 
+        batches, and a moderate number of samples per ray—I reached more stable 
+        training curves and sharper reconstructions on my custom crocheted dragon.
+      </p>
+      
+
+    <div class="two-col">
+      <figure class="wide-fig">
+        <img src="code/~/Results/my_obj_snapshots.png"
+             alt="My object NeRF snapshots" />
+        <figcaption>
+          Intermediate renders of the scene during training (e.g., iters 100, 300, 600, 1000, 2000).
+        </figcaption>
+      </figure>
+      <div>
+        <figure class="wide-fig">
+          <img src="code/~/Results/my_nerf_psnr.png" alt="My object PSNR curve" />
+          <figcaption>Training vs. validation PSNR over iterations.</figcaption>
+        </figure>
+        <figure class="wide-fig">
+          <img src="code/~/Results/my_nerf_loss.png" alt="My object training loss curve" />
+          <figcaption>Training loss curve (MSE) over iterations.</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <figure class="wide-fig" style="margin-top:1.5rem;">
+      <img src="code/my_object_nerf.gif" alt="My object NeRF novel-view GIF" />
+      <figcaption>
+        GIF of the camera circling my object, showing novel views rendered by the
+        trained NeRF.
+      </figcaption>
+    </figure>
+  </section>
+</main>
+
+<footer>
+  All figures and videos are generated from my implementation in
+  <code>code/main.ipynb</code>.
+</footer>
+</body>
+</html>
