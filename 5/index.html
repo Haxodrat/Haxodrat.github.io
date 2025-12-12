@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <base href="./CS 180 Proj5 Results/data/">
+  <title>CS 180 Project 5 - Diffusion Models (Part A)</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #111;
+      color: #eee;
+      margin: 0;
+      padding: 0 0 60px 0;
+    }
+    header {
+      background: #222;
+      padding: 20px 40px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    h1 {
+      margin: 0 0 8px 0;
+    }
+    a {
+      color: #88c9ff;
+    }
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 20px 20px 60px 20px;
+    }
+    section {
+      margin-bottom: 50px;
+      border-top: 1px solid #444;
+      padding-top: 30px;
+    }
+    h2, h3, h4 {
+      margin-top: 0;
+    }
+    .grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-top: 10px;
+    }
+    figure {
+      margin: 0;
+      text-align: center;
+      font-size: 0.9rem;
+    }
+    figure img {
+      display: block;
+      width: 100%;
+      height: auto;
+      object-fit: contain;
+      border-radius: 6px;
+      border: 1px solid #444;
+      background: #000;
+    }
+    .small img {
+      max-width: 500px;
+    }
+    .caption-strong {
+      font-weight: 600;
+      margin-top: 4px;
+    }
+    nav ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 20px;
+      font-size: 0.9rem;
+    }
+    nav li::before {
+      content: "• ";
+      color: #888;
+    }
+    footer {
+      text-align: center;
+      font-size: 0.8rem;
+      color: #aaa;
+      margin-top: 40px;
+    }
+    @media (max-width: 700px) {
+      figure img {
+        width: 130px;
+        height: 130px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>CS 180 Project 5 - Diffusion Models (Part A)</h1>
+    <nav>
+      <ul>
+        <li><a href="#part0">Part 0: Setup / Text Prompts</a></li>
+        <li><a href="#sec1-1">1.1 Forward Process</a></li>
+        <li><a href="#sec1-2">1.2 Classical Denoising</a></li>
+        <li><a href="#sec1-3">1.3 One-Step Denoising</a></li>
+        <li><a href="#sec1-4">1.4 Iterative Denoising</a></li>
+        <li><a href="#sec1-5">1.5 Sampling</a></li>
+        <li><a href="#sec1-6">1.6 CFG</a></li>
+        <li><a href="#sec1-7">1.7 Image-to-image / SDEdit</a></li>
+        <li><a href="#sec1-71">1.7.1 Editing Hand-Drawn and Web Images</a></li>
+        <li><a href="#sec1-72">1.7.2 Inpainting</a></li>
+        <li><a href="#sec1-73">1.7.3 Text-Cond</a></li>
+        <li><a href="#sec1-8">1.8 Visual Anagrams</a></li>
+        <li><a href="#sec1-9">1.9 Hybrid Images</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Part 0 -->
+    <section id="part0">
+      <h2>Part 0 - Playing with DeepFloyd IF</h2>
+      <p>
+        I generated prompt embeddings on the HuggingFace cluster and sampled
+        images with DeepFloyd IF. Below are three of my favorite prompts and
+        corresponding 100-step samples. I am using random seed = 100.
+
+        Increasing the number of steps consistently made the images more coherent and closer to the text.
+        The brain/canopy and heart-shaped city matched their prompts surprisingly well at high steps: 
+        the global shapes (brain outline, heart outline) became clear while retaining a painter style. 
+        The calculus-constellations prompt was harder—the sky looked good, but the “symbols” were only 
+        loosely suggested rather than cleanly readable, showing that the model captures the general idea 
+        but struggles with precise symbolic details. I tried 20, 40, and 100 for the num_inference_steps with distinct, progressive
+        improvements.
+      </p>
+      <div class="grid">
+        <figure>
+          <img src="brain_canopy_100.png" alt="Watercolor brain &amp; tree canopy">
+          <figcaption>
+            <div class="caption-strong">Prompt:</div>
+            a watercolor painting of a brain that also looks like a tree canopy
+          </figcaption>
+        </figure>
+        <figure>
+          <img src="heart_city_100.png" alt="Aerial view of city as heart">
+          <figcaption>
+            <div class="caption-strong">Prompt:</div>
+            an aerial view of a city forming the shape of a human heart
+          </figcaption>
+        </figure>
+        <figure>
+          <img src="night_calculus_100.png" alt="Night sky calculus symbols">
+          <figcaption>
+            <div class="caption-strong">Prompt:</div>
+            a starry night sky whose constellations form calculus symbols
+          </figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- 1.1 -->
+    <section id="sec1-1">
+      <h2>1.1 Implementing the Forward Process</h2>
+      <p>
+        Here I apply the forward diffusion process to the Berkeley Campanile for
+        different timesteps, adding progressively more Gaussian noise.
+      </p>
+      <div class="grid">
+        <figure>
+          <img src="campanile.png" alt="Original Campanile">
+          <figcaption>Original Campanile</figcaption>
+        </figure>
+        <figure>
+          <img src="campanilie_250.png" alt="Noisy t=250">
+          <figcaption>Noisy Campanile at t=250</figcaption>
+        </figure>
+        <figure>
+          <img src="campanile_500.png" alt="Noisy t=500">
+          <figcaption>Noisy Campanile at t=500</figcaption>
+        </figure>
+        <figure>
+          <img src="campanile_750.png" alt="Noisy t=750">
+          <figcaption>Noisy Campanile at t=750</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- 1.2 -->
+    <section id="sec1-2">
+      <h2>1.2 Classical Denoising</h2>
+      <p>
+        I used Gaussian blur as a classical denoising baseline on the three noisy
+        Campanile images.
+      </p>
+      <div class="grid">
+        <figure>
+          <img src="campanilie_250.png" alt="Noisy 250">
+          <figcaption>Noisy t=250</figcaption>
+        </figure>
+        <figure>
+          <img src="gauss_denoised_250.png" alt="Gaussian denoised 250">
+          <figcaption>Gaussian blur at t=250</figcaption>
+        </figure>
+        <figure>
+          <img src="campanile_500.png" alt="Noisy 500">
+          <figcaption>Noisy t=500</figcaption>
+        </figure>
+        <figure>
+          <img src="gauss_denoised_500.png" alt="Gaussian denoised 500">
+          <figcaption>Gaussian blur at t=500</figcaption>
+        </figure>
+        <figure>
+          <img src="campanile_750.png" alt="Noisy 750">
+          <figcaption>Noisy t=750</figcaption>
+        </figure>
+        <figure>
+          <img src="gauss_denoised_750.png" alt="Gaussian denoised 750">
+          <figcaption>Gaussian blur at t=750</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- 1.3 -->
+    <section id="sec1-3">
+      <h2>1.3 One-Step Denoising with a Diffusion Model</h2>
+      <p>
+        Using the pretrained UNet denoiser, I estimate and remove the noise from
+        each noisy Campanile in a single step.
+      </p>
+      <div class="grid">
+        <figure>
+          <img src="campanilie_250.png" alt="Noisy 250">
+          <figcaption>Noisy t=250</figcaption>
+        </figure>
+        <figure>
+          <img src="campanile_denoised_250.png" alt="Denoised 250">
+          <figcaption>One-step estimate at t=250</figcaption>
+        </figure>
+        <figure>
+          <img src="campanile_500.png" alt="Noisy 500">
+          <figcaption>Noisy t=500</figcaption>
+        </figure>
+        <figure>
+          <img src="campanile_denoised_500.png" alt="Denoised 500">
+          <figcaption>One-step estimate at t=500</figcaption>
+        </figure>
+        <figure>
+          <img src="campanile_750.png" alt="Noisy 750">
+          <figcaption>Noisy t=750</figcaption>
+        </figure>
+        <figure>
+          <img src="campanile_denoised_750.png" alt="Denoised 750">
+          <figcaption>One-step estimate at t=750</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section id="sec1-4">
+      <h2>1.4 Iterative Denoising</h2>
+      <p>
+        Using <code>i_start = 10</code>, I create a strided schedule of timesteps and
+        run the reverse diffusion loop. Below I show the noisy Campanile every 5th
+        iteration and then compare three different ways of recovering the clean image.
+      </p>
+    
+      <!-- Noisy snapshots every 5th loop -->
+      <h4>Noisy Campanile during denoising (every 5th loop)</h4>
+      <div class="grid small">
+        <figure>
+          <img src="campanile_iter_30.png" alt="Noisy Campanile at t=30">
+          <figcaption>Noisy Campanile at t = 30</figcaption>
+        </figure>
+        <figure>
+          <img src="campanile_iter_90.png" alt="Noisy Campanile at t=90">
+          <figcaption>Noisy Campanile at t = 90</figcaption>
+        </figure>
+        <figure>
+          <img src="campanile_iter_240.png" alt="Noisy Campanile at t=240">
+          <figcaption>Noisy Campanile at t = 240</figcaption>
+        </figure>
+        <figure>
+          <img src="campanile_iter_390.png" alt="Noisy Campanile at t=390">
+          <figcaption>Noisy Campanile at t = 390</figcaption>
+        </figure>
+        <figure>
+          <img src="campanile_iter_540.png" alt="Noisy Campanile at t=540">
+          <figcaption>Noisy Campanile at t = 540</figcaption>
+        </figure>
+        <figure>
+          <img src="campanile_iter_690.png" alt="Noisy Campanile at t=690">
+          <figcaption>Noisy Campanile at t = 690</figcaption>
+        </figure>
+      </div>
+    
+      <!-- Final reconstructions -->
+      <h4>Final reconstructions after denoising</h4>
+      <div class="grid small">
+        <figure>
+          <img src="campanile.png" alt="Original Campanile">
+          <figcaption>Original Campanile</figcaption>
+        </figure>
+        <figure>
+          <img src="iterative_ddpm_campanile.png" alt="Iteratively denoised Campanile">
+          <figcaption>Iteratively denoised Campanile</figcaption>
+        </figure>
+        <figure>
+          <img src="one_step_campanile.png" alt="One-step denoised Campanile">
+          <figcaption>One-step denoised Campanile</figcaption>
+        </figure>
+        <figure>
+          <img src="blurred_campanile.png" alt="Gaussian blurred Campanile">
+          <figcaption>Gaussian-blurred Campanile</figcaption>
+        </figure>
+      </div>
+    </section>
+    
+
+
+    <!-- 1.5 -->
+    <section id="sec1-5">
+      <h2>1.5 Diffusion Model Sampling</h2>
+      <p>
+        Sampling from pure noise with the basic iterative denoiser (no CFG), using
+        the prompt <em>"a high quality picture"</em>.
+      </p>
+      <div class="grid small">
+        <figure>
+          <img src="sample_1.png" alt="Sample 1">
+          <figcaption>Sample 1</figcaption>
+        </figure>
+        <figure>
+          <img src="sample_2.png" alt="Sample 2">
+          <figcaption>Sample 2</figcaption>
+        </figure>
+        <figure>
+          <img src="sample_3.png" alt="Sample 3">
+          <figcaption>Sample 3</figcaption>
+        </figure>
+        <figure>
+          <img src="sample_4.png" alt="Sample 4">
+          <figcaption>Sample 4</figcaption>
+        </figure>
+        <figure>
+          <img src="sample_5.png" alt="Sample 5">
+          <figcaption>Sample 5</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- 1.6 -->
+    <section id="sec1-6">
+      <h2>1.6 Classifier-Free Guidance (CFG)</h2>
+      <p>
+        Using CFG with scale γ = 7 noticeably sharpens and cleans up the sampled
+        images for the same prompt <em>"a high quality picture"</em>.
+      </p>
+      <div class="grid small">
+        <figure>
+          <img src="sample_1_cfg.png" alt="Sample 1 CFG">
+          <figcaption>Sample 1 with CFG</figcaption>
+        </figure>
+        <figure>
+          <img src="sample_2_cfg.png" alt="Sample 2 CFG">
+          <figcaption>Sample 2 with CFG</figcaption>
+        </figure>
+        <figure>
+          <img src="sample_3_cfg.png" alt="Sample 3 CFG">
+          <figcaption>Sample 3 with CFG</figcaption>
+        </figure>
+        <figure>
+          <img src="sample_4_cfg.png" alt="Sample 4 CFG">
+          <figcaption>Sample 4 with CFG</figcaption>
+        </figure>
+        <figure>
+          <img src="sample_5_cfg.png" alt="Sample 5 CFG">
+          <figcaption>Sample 5 with CFG</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- 1.7 -->
+    <section id="sec1-7">
+      <h2>1.7 Image-to-image Translation (SDEdit)</h2>
+      <p>
+        I add noise to the real Campanile image and then denoise with CFG,
+        gradually forcing the result back to the image manifold.
+      </p>
+      <div class="grid small">
+        <figure>
+          <img src="campanile_normal_prompt.png" alt="campanile with normal prompt">
+          <figcaption>Campanile Denoising</figcaption>
+        </figure>
+        <figure>
+          <img src="basketball_denoising.png" alt="basketball with normal prompt">
+          <figcaption>Basketball Denoising</figcaption>
+        </figure>
+        <figure>
+          <img src="math_denoising.png" alt="math with normal prompt">
+          <figcaption>Math Denoising</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- 1.7.1 -->
+    <section id="sec1-71">
+      <h3>1.7.1 Editing Hand-Drawn and Web Images</h3>
+      <p>
+        I apply the same procedure to both a web image and my own sketches.
+      </p>
+      <h4>Web Image</h4>
+      <div class="grid small">
+        <figure>
+          <img src="duck.jpeg" alt="Original web duck">
+          <figcaption>Original web duck image</figcaption>
+        </figure>
+        <figure>
+          <img src="duckduck.png" alt="Edited web duck">
+          <figcaption>Edited duck via SDEdit</figcaption>
+        </figure>
+      </div>
+
+      <h4>Hand-drawn Image 1</h4>
+      <div class="grid small">
+        <figure>
+          <img src="flag_draw.png" alt="Handdrawn ball & flag">
+          <figcaption>Edited ball &amp; flag</figcaption>
+        </figure>
+        <figure>
+          <img src="ball_with_flag.png" alt="Edited ball & flag">
+          <figcaption>Original sketch: ball &amp; flag</figcaption>
+        </figure>
+      </div>
+
+      <h4>Hand-drawn Image 2</h4>
+      <div class="grid small">
+        <figure>
+          <img src="house_draw.png" alt="Original house sketch">
+          <figcaption>Edited house sketch</figcaption>
+        </figure>
+        <figure>
+          <img src="handdrawn_img.png" alt="Edited house sketch">
+          <figcaption>Original house sketch</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- 1.7.2 Inpainting -->
+    <section id="sec1-72">
+      <h2>1.7.2 Inpainting</h2>
+      <p>
+        Using a binary mask, I inpaint parts of the image while keeping the rest
+        fixed according to the original.
+      </p>
+
+      <h3>Campanile Inpainting</h3>
+      <div class="grid small">
+        <figure>
+          <img src="campanile.png" alt="Original Campanile">
+          <figcaption>Original</figcaption>
+        </figure>
+        <figure>
+          <img src="campanile_mask.png" alt="Campanile mask">
+          <figcaption>Mask</figcaption>
+        </figure>
+        <figure>
+          <img src="campanile_impainted.png" alt="Inpainted Campanile">
+          <figcaption>Campanile inpainted</figcaption>
+        </figure>
+      </div>
+
+      <h3>Own Image Inpainting - Sketch</h3>
+      <div class="grid small">
+        <figure>
+          <img src="img_mask.png" alt="Mask for sketch">
+          <figcaption>Mask over sketch</figcaption>
+        </figure>
+        <figure>
+          <img src="img_inpainted.png" alt="Inpainted sketch">
+          <figcaption>Inpainted sketch</figcaption>
+        </figure>
+      </div>
+
+      <h3>Own Image Inpainting - Duck</h3>
+      <div class="grid small">
+        <figure>
+          <img src="duck.jpeg" alt="Original yellow duck">
+          <figcaption>Original duck</figcaption>
+        </figure>
+        <figure>
+          <img src="duck_mask.png" alt="Duck mask">
+          <figcaption>Duck mask</figcaption>
+        </figure>
+        <figure>
+          <img src="duck_impainted.png" alt="Duck inpainted">
+          <figcaption>Duck inpainted</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- 1.7.3 -->
+    <section id="sec1-73">
+      <h2>1.7.3 Text-Conditioned Image-to-Image Translation</h2>
+      <p>
+        Now I guide SDEdit with a new text prompt. For the Campanile, I use the
+        prompt <em>"a rocket ship"</em> with different noise levels, making the
+        image look like a rocket while still resembling the tower. I did similar
+        things for my two images.
+      </p>
+      <div class="grid small">
+        <figure>
+          <img src="rocket_campanile.png" alt="Rocket Campanile strip">
+          <figcaption>Rocket ship-style edits at multiple noise levels</figcaption>
+        </figure>
+      </div>
+
+      <h3>Text-conditioned edits for my own images</h3>
+      <div class="grid small">
+        <figure>
+          <img src="rocket_duck.png" alt="Rocket duck">
+          <figcaption>Prompt: a rocket ship</figcaption>
+        </figure>
+        <figure>
+          <img src="rocket_draw.png" alt="Rocket over sketch">
+          <figcaption>Prompt: a rocket ship</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- 1.8 Visual Anagrams -->
+    <section id="sec1-8">
+      <h2>1.8 Visual Anagrams</h2>
+      <p>
+        For visual anagrams, I average noise estimates from two prompts: one for
+        the upright orientation and another for the flipped image. The result is
+        an image that changes meaning when rotated 180°.
+      </p>
+
+      <h3>Illusion 1 - Skull / Dove</h3>
+      <div class="grid">
+        <figure>
+          <img src="skull_dove.png" alt="Skull and dove illusion">
+          <figcaption>Upright: skull - upside down: white dove over canyon</figcaption>
+        </figure>
+      </div>
+
+      <h3>Illusion 2 - Brain Canopy / City Skyline</h3>
+      <div class="grid">
+        <figure>
+          <img src="braincanopy_city.png" alt="Brain canopy and city illusion">
+          <figcaption>
+            Upright: watercolor brain/tree canopy - flipped: city skyline / tower
+          </figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- 1.9 Hybrid Images -->
+    <section id="sec1-9">
+      <h2>1.9 Hybrid Images</h2>
+      <p>
+        Finally, I combine low frequencies from one prompt with high frequencies
+        from another using Gaussian blur, creating hybrid images that look
+        different from near vs. far away.
+      </p>
+
+      <div class="grid ">
+        <figure>
+          <img src="brain_rocket.png" alt="Brain & rocket hybrid">
+          <figcaption>Hybrid of brain and a rocket ship</figcaption>
+        </figure>
+        <figure>
+          <img src="duck_croc.png" alt="Duck & croc hybrid">
+          <figcaption>Hybrid of duck and croc sketch</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <footer>
+      CS 180 Project 5 - Part A Results
+    </footer>
+  </main>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    // Intercept all nav links that start with '#'
+    document.querySelectorAll('nav a[href^="#"]').forEach(a => {
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        const id = a.getAttribute('href').substring(1);
+        const el = document.getElementById(id);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+  });
+</script>  
+</body>
+</html>
