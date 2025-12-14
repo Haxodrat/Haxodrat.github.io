@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <base href="./CS 180 Proj5 Results/data/">
-  <title>CS 180 Project 5 - Diffusion Models (Part A)</title>
+  <title>CS 180 Project 5 - Diffusion Models (Parts A & B)</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -94,7 +94,7 @@
 </head>
 <body>
   <header>
-    <h1>CS 180 Project 5 - Diffusion Models (Part A)</h1>
+    <h1>CS 180 Project 5 - Diffusion Models (Parts A & B)</h1>
     <nav>
       <ul>
         <li><a href="#part0">Part 0: Setup / Text Prompts</a></li>
@@ -110,6 +110,17 @@
         <li><a href="#sec1-73">1.7.3 Text-Cond</a></li>
         <li><a href="#sec1-8">1.8 Visual Anagrams</a></li>
         <li><a href="#sec1-9">1.9 Hybrid Images</a></li>
+        <li><a href="#partB">Part B: Flow Matching from Scratch</a></li>
+        <li><a href="#b1-2">B1.2 Noising Visualization</a></li>
+        <li><a href="#b1-21">B1.2.1 Train One-Step Denoiser</a></li>
+        <li><a href="#b1-22">B1.2.2 OOD Noise</a></li>
+        <li><a href="#b1-23">B1.2.3 Denoising Pure Noise</a></li>
+        <li><a href="#b2-2">B2.2 Train Time-Cond UNet</a></li>
+        <li><a href="#b2-3">B2.3 Sample Time-Cond UNet</a></li>
+        <li><a href="#b2-5">B2.5 Train Class-Cond UNet</a></li>
+        <li><a href="#b2-6">B2.6 Sample Class-Cond UNet</a></li>
+        <li><a href="#b2-6-nosched">B2.6 No Scheduler</a></li>
+
       </ul>
     </nav>
   </header>
@@ -572,9 +583,250 @@
         </figure>
       </div>
     </section>
+    
+    <!-- ===================== -->
+    <!-- Part B: Flow Matching -->
+    <!-- ===================== -->
+
+    <section id="partB">
+      <h2>Part B - Flow Matching from Scratch (MNIST)</h2>
+      <p>
+        In Part B, I trained UNet-based models on MNIST to (1) denoise images and (2) generate digits
+        from pure noise using flow matching. I report training loss curves and qualitative samples at
+        required epochs to track convergence and sample quality.
+      </p>
+    </section>
+
+    <section id="b1-2">
+      <h2>B1.2 Visualizing the Noising Process</h2>
+      <p>
+        To build intuition for diffusion-style corruption, I visualized how adding Gaussian noise
+        changes an input image as the noise level increases. As noise increases, digit structure becomes
+        less recognizable and eventually resembles pure noise.
+      </p>
+      <div class="grid small">
+        <figure>
+          <img src="sigmas.png" alt="Noising visualization over different noise levels">
+          <figcaption>Noising process visualization (increasing noise)</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section id="b1-21">
+      <h2>B1.2.1 Training a One-Step Denoising UNet</h2>
+      <p>
+        I trained a UNet to map a noisy MNIST digit to its clean version using an L2 loss.
+        During training, each batch is re-noised so the model generalizes to different noise realizations.
+        Below are the training loss curve and denoised samples after epochs 1 and 5.
+      </p>
+
+      <h4>Training loss</h4>
+      <div class="grid small">
+        <figure>
+          <img src="training_curve.png" alt="One-step denoiser training loss curve">
+          <figcaption>One-step denoiser training loss</figcaption>
+        </figure>
+      </div>
+
+      <h4>Test-set denoising results (noise level ≈ 0.5)</h4>
+      <div class="grid small">
+        <figure>
+          <img src="test_epoch_1.png" alt="Denoising results after epoch 1">
+          <figcaption>After Epoch 1</figcaption>
+        </figure>
+        <figure>
+          <img src="training_epoch_5.png" alt="Denoising results after epoch 5">
+          <figcaption>After Epoch 5</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section id="b1-22">
+      <h2>B1.2.2 Out-of-Distribution (OOD) Noise Testing</h2>
+      <p>
+        The one-step denoiser is trained under a specific noise distribution, so I tested robustness by
+        evaluating the same digit under a range of noise levels. As noise moves out-of-distribution,
+        performance typically degrades: the model either under-denoises (residual noise) or over-smooths
+        structure.
+      </p>
+      <div class="grid small">
+        <figure>
+          <img src="ood_visual.png" alt="OOD denoising visualization across multiple noise levels">
+          <figcaption>OOD denoising across different noise levels</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section id="b1-23">
+      <h2>B1.2.3 Denoising Pure Noise (Generative Attempt)</h2>
+      <p>
+        Here I trained the denoiser to map pure Gaussian noise directly to an MNIST-like output in a single step.
+        With an MSE objective, the model is encouraged to predict an average/centroid-like target over many possible
+        digits, which can produce blurry “prototypes” or mixtures of digit-like strokes rather than crisp, diverse samples.
+      </p>
+
+      <h4>Training loss</h4>
+      <div class="grid small">
+        <figure>
+          <img src="pure_noise_curve.png" alt="Pure-noise denoiser training loss curve">
+          <figcaption>Training loss for denoising pure noise</figcaption>
+        </figure>
+      </div>
+
+      <h4>Samples after training</h4>
+      <div class="grid small">
+        <figure>
+          <img src="pure_noise_1.png" alt="Pure-noise outputs after epoch 1">
+          <figcaption>After Epoch 1</figcaption>
+        </figure>
+        <figure>
+          <img src="pure_noise_5.png" alt="Pure-noise outputs after epoch 5">
+          <figcaption>After Epoch 5</figcaption>
+        </figure>
+        <figure>
+          <img src="samples_generated_from_noise.png" alt="Samples generated from random noise">
+          <figcaption>Generated outputs from random noise (qualitative)</figcaption>
+        </figure>
+      </div>
+
+      <p>
+        <strong>Observed pattern:</strong> outputs tend to look like averaged digit strokes (shared shapes across classes),
+        with limited diversity.<br/>
+        <strong>Why:</strong> one-step denoising with an L2 loss tends to predict the conditional mean, which collapses multiple
+        plausible digits into a single “best average” reconstruction rather than sampling multiple modes.
+      </p>
+    </section>
+
+    <section id="b2-2">
+      <h2>B2.2 Training a Time-Conditioned UNet (Flow Matching)</h2>
+      <p>
+        I trained a time-conditioned UNet to predict the flow from an interpolated noisy sample toward the clean data
+        at randomly sampled timesteps. Conditioning on time teaches the model how to denoise progressively at different
+        points along the trajectory.
+      </p>
+      <div class="grid small">
+        <figure>
+          <img src="time_cond_unet_traing_loss.png" alt="Time-conditioned UNet training loss curve">
+          <figcaption>Time-conditioned UNet training loss</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section id="b2-3">
+      <h2>B2.3 Sampling from the Time-Conditioned UNet</h2>
+      <p>
+        Starting from pure noise, I iteratively update the sample using the predicted flow across timesteps.
+        Over training, samples become increasingly digit-like; by later epochs the digit structure becomes clearer,
+        though results are typically weaker than class-conditioned sampling.
+      </p>
+      <div class="grid small">
+        <figure>
+          <img src="time_cond_unet_1.png" alt="Time-conditioned samples after epoch 1">
+          <figcaption>Epoch 1</figcaption>
+        </figure>
+        <figure>
+          <img src="time_cond_unet_5.png" alt="Time-conditioned samples after epoch 5">
+          <figcaption>Epoch 5</figcaption>
+        </figure>
+        <figure>
+          <img src="time_cond_unet_10.png" alt="Time-conditioned samples after epoch 10">
+          <figcaption>Epoch 10</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section id="b2-5">
+      <h2>B2.5 Training a Class-Conditioned UNet</h2>
+      <p>
+        I extended the model to condition on both time and digit class (one-hot vector), using classifier-free guidance
+        during sampling by dropping the class conditioning with probability <code>p_uncond</code>.
+        Class-conditioning improves convergence speed and sample fidelity because the model no longer needs to represent
+        all digit modes simultaneously without guidance.
+      </p>
+      <div class="grid small">
+        <figure>
+          <img src="class_cond_unet_training_loss.png" alt="Class-conditioned UNet training loss curve (with scheduler)">
+          <figcaption>Class-conditioned UNet training loss (with LR scheduler)</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section id="b2-6">
+      <h2>B2.6 Sampling from the Class-Conditioned UNet (CFG)</h2>
+      <p>
+        I sampled with class-conditioning and classifier-free guidance (γ = 5.0). Below are 4 instances per digit
+        after epochs 1, 5, and 10. Compared to time-only conditioning, digits become legible faster and match their target
+        classes more reliably.
+      </p>
+      <div class="grid small">
+        <figure>
+          <img src="class-cond_samples_w_lr_1.png" alt="Class-conditioned samples with scheduler after epoch 1">
+          <figcaption>Epoch 1 (with scheduler)</figcaption>
+        </figure>
+        <figure>
+          <img src="class-cond_samples_w_lr_5.png" alt="Class-conditioned samples with scheduler after epoch 5">
+          <figcaption>Epoch 5 (with scheduler)</figcaption>
+        </figure>
+        <figure>
+          <img src="class-cond_samples_w_lr_10.png" alt="Class-conditioned samples with scheduler after epoch 10">
+          <figcaption>Epoch 10 (with scheduler)</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section id="b2-6-nosched">
+      <h2>B2.6 Removing the Learning Rate Scheduler</h2>
+      <p>
+        To simplify training, I removed the exponential LR scheduler and trained with a constant learning rate.
+        Adam's adaptive updates helped keep training stable; the final sample quality remained comparable to the scheduler run.
+        (If training ever became unstable, the simplest fix is lowering the constant LR slightly.)
+
+        What I changed (to compensate for removing the scheduler):
+
+        Lowered the learning rate from the scheduler setup to a fixed LR = 1e-3 (instead of starting
+         at 1e-2 and decaying).
+        This mimics the effect of a decayed learning rate by keeping updates small and stable 
+        throughout training.
+
+        Added gradient clipping:
+        torch.nn.utils.clip_grad_norm_(fm_c.parameters(), 1.0)
+        This prevents occasional large gradients from causing unstable jumps when there's no LR 
+        decay to “cool down” training.
+
+        Result:
+        With constant LR + gradient clipping, training remained stable and the class-conditioned 
+        samples after epochs 1, 5, and 10 stayed comparable in quality to the scheduler run, while 
+        simplifying the training loop.
+      </p>
+
+      <h4>Training loss (no scheduler)</h4>
+      <div class="grid small">
+        <figure>
+          <img src="class_cond_unet_training_loss_no_lr.png" alt="Class-conditioned UNet training loss curve (no scheduler)">
+          <figcaption>Class-conditioned UNet training loss (no scheduler)</figcaption>
+        </figure>
+      </div>
+
+      <h4>Sampling results (no scheduler)</h4>
+      <div class="grid small">
+        <figure>
+          <img src="class_cond_unet_no_lr_1.png" alt="Class-conditioned samples without scheduler after epoch 1">
+          <figcaption>Epoch 1 (no scheduler)</figcaption>
+        </figure>
+        <figure>
+          <img src="class_cond_unet_no_lr_5.png" alt="Class-conditioned samples without scheduler after epoch 5">
+          <figcaption>Epoch 5 (no scheduler)</figcaption>
+        </figure>
+        <figure>
+          <img src="class_cond_unet_no_lr_10.png" alt="Class-conditioned samples without scheduler after epoch 10">
+          <figcaption>Epoch 10 (no scheduler)</figcaption>
+        </figure>
+      </div>
+    </section>
+
 
     <footer>
-      CS 180 Project 5 - Part A Results
+      CS 180 Project 5 - Parts A & B Results
     </footer>
   </main>
 
